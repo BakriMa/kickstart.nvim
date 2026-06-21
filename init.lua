@@ -114,6 +114,11 @@ do
 
   -- Enable mouse mode, can be useful for resizing splits for example!
   vim.o.mouse = 'a'
+  -- fix indentation globally
+  vim.o.tabstop = 4
+  vim.o.shiftwidth = 4
+  vim.o.softtabstop = 4
+  vim.o.expandtab = true
 
   -- Don't show the mode, since it's already in the status line
   vim.o.showmode = false
@@ -972,6 +977,7 @@ do
   require 'kickstart.plugins.autopairs'
   -- require 'kickstart.plugins.neo-tree'
   require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
+  require 'kickstart.plugins.tabout'
 
   -- NOTE: You can add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --
