@@ -91,7 +91,9 @@ P.S. You can delete this when you're done too. It's your config now! :)
 do
   -- Enable faster startup by caching compiled Lua modules
   vim.loader.enable()
-
+  if vim.g.neovide then
+    vim.g.neovide_remember_window_size = true
+  end
   -- Set <space> as the leader key
   -- See `:help mapleader`
   --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
@@ -134,7 +136,8 @@ do
 
   -- Enable undo/redo changes even after closing and reopening a file
   vim.o.undofile = true
-
+  -- auto dir
+  vim.o.autochdir= true
   -- Case-insensitive searching UNLESS \C or one or more capital letters in the search term
   vim.o.ignorecase = true
   vim.o.smartcase = true
@@ -214,8 +217,47 @@ do
     },
   }
 
-  vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+   vim.keymap.set('n', '<leader>r', function()
+    local function find_project_root()
+      local path = vim.fn.getcwd()
+      while path ~= vim.fn.fnamemodify(path, ':h') do
+        if vim.fn.isdirectory(path .. '\\build') == 1 then
+          return path
+        end
+        path = vim.fn.fnamemodify(path, ':h')
+      end
+    end
 
+    local root = find_project_root()
+    if not root then
+      vim.notify('Could not find project root', vim.log.levels.WARN)
+      return
+    end
+
+    vim.notify('Building...', vim.log.levels.INFO)
+    vim.system({ 'cmake', '--build', 'build' }, { cwd = root }, function(result)
+      if result.code ~= 0 then
+        vim.schedule(function()
+          vim.notify('Build failed:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
+        end)
+        return
+      end
+      vim.schedule(function()
+        local exes = vim.fn.glob(root .. '\\build\\*.exe', false, true)
+        if #exes == 0 then
+          vim.notify('No .exe found', vim.log.levels.WARN)
+          return
+        end
+        if #exes == 1 then
+          vim.cmd('!' .. exes[1])
+          return
+        end
+        vim.ui.select(exes, { prompt = 'Run which exe?' }, function(choice)
+          if choice then vim.cmd('!' .. choice) end
+        end)
+      end)
+    end)
+  end, { desc = '[B]uild and [R]un' }) 
   -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
   -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
   -- is not what someone will guess without a bit more experience.
@@ -421,21 +463,7 @@ do
   --  - va)  - [V]isually select [A]round [)]paren
   --  - yiiq - [Y]ank [I]nside [I]+1 [Q]uote
   --  - ci'  - [C]hange [I]nside [']quote
-  vim.pack.add({
-    "https://github.com/sphamba/smear-cursor.nvim",
-  })
 
-  require('smear_cursor').setup({
-  opts = {                                -- Default  Range
-    stiffness = 0.8,                      -- 0.6      [0, 1]
-    trailing_stiffness = 0.6,             -- 0.45     [0, 1]
-    stiffness_insert_mode = 0.7,          -- 0.5      [0, 1]
-    trailing_stiffness_insert_mode = 0.7, -- 0.5      [0, 1]
-    damping = 0.95,                       -- 0.85     [0, 1]
-    damping_insert_mode = 0.95,           -- 0.9      [0, 1]
-    distance_stop_animating = 0.5,        -- 0.1      > 0
-  },
-  })
   require('mini.ai').setup {
     -- NOTE: Avoid conflicts with the built-in incremental selection mappings on Neovim>=0.12 (see `:help treesitter-incremental-selection`)
     mappings = {
@@ -872,7 +900,7 @@ do
       -- <c-k>: Toggle signature help
       --
       -- See `:help blink-cmp-config-keymap` for defining your own keymap
-      preset = 'default',
+      preset = 'super-tab',
 
       -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
       --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
