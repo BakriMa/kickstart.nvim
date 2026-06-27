@@ -91,9 +91,7 @@ P.S. You can delete this when you're done too. It's your config now! :)
 do
   -- Enable faster startup by caching compiled Lua modules
   vim.loader.enable()
-  if vim.g.neovide then
-    vim.g.neovide_remember_window_size = true
-  end
+  if vim.g.neovide then vim.g.neovide_remember_window_size = true end
   -- Set <space> as the leader key
   -- See `:help mapleader`
   --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
@@ -137,7 +135,7 @@ do
   -- Enable undo/redo changes even after closing and reopening a file
   vim.o.undofile = true
   -- auto dir
-  vim.o.autochdir= true
+  vim.o.autochdir = true
   -- Case-insensitive searching UNLESS \C or one or more capital letters in the search term
   vim.o.ignorecase = true
   vim.o.smartcase = true
@@ -217,13 +215,11 @@ do
     },
   }
 
-   vim.keymap.set('n', '<leader>r', function()
+  vim.keymap.set('n', '<leader>r', function()
     local function find_project_root()
       local path = vim.fn.getcwd()
       while path ~= vim.fn.fnamemodify(path, ':h') do
-        if vim.fn.isdirectory(path .. '\\build') == 1 then
-          return path
-        end
+        if vim.fn.isdirectory(path .. '\\build') == 1 then return path end
         path = vim.fn.fnamemodify(path, ':h')
       end
     end
@@ -237,9 +233,7 @@ do
     vim.notify('Building...', vim.log.levels.INFO)
     vim.system({ 'cmake', '--build', 'build' }, { cwd = root }, function(result)
       if result.code ~= 0 then
-        vim.schedule(function()
-          vim.notify('Build failed:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
-        end)
+        vim.schedule(function() vim.notify('Build failed:\n' .. (result.stderr or ''), vim.log.levels.ERROR) end)
         return
       end
       vim.schedule(function()
@@ -257,7 +251,7 @@ do
         end)
       end)
     end)
-  end, { desc = '[B]uild and [R]un' }) 
+  end, { desc = '[B]uild and [R]un' })
   -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
   -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
   -- is not what someone will guess without a bit more experience.
@@ -422,25 +416,28 @@ do
       { 'gr', group = 'LSP Actions', mode = { 'n' } },
     },
   }
-
+  vim.pack.add{gh "rebelot/kanagawa.nvim"}
+  require("kanagawa").setup({
+    background={dark="dragon"}
+  })
   -- [[ Colorscheme ]]
   -- You can easily change to a different colorscheme.
   -- Change the name of the colorscheme plugin below, and then
   -- change the command under that to load whatever the name of that colorscheme is.
   --
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-  vim.pack.add { gh 'folke/tokyonight.nvim' }
+  -- vim.pack.add { gh 'folke/tokyonight.nvim' }
   ---@diagnostic disable-next-line: missing-fields
-  require('tokyonight').setup {
-    styles = {
-      comments = { italic = false }, -- Disable italics in comments
-    },
-  }
+ -- require('tokyonight').setup {
+  --  styles = {
+  --    comments = { italic = false }, -- Disable italics in comments
+  --  },
+  --}
 
   -- Load the colorscheme here.
   -- Like many other themes, this one has different styles, and you could load
   -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+  vim.cmd("colorscheme kanagawa")
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
@@ -743,8 +740,8 @@ do
     -- gopls = {},
     pyright = {},
     rust_analyzer = {},
-    html={},
-    cssls={},
+    html = {},
+    cssls = {},
     -- Some languages (like typescript) have entire language plugins that can be useful:
     --    https://github.com/pmizio/typescript-tools.nvim
     --
@@ -828,115 +825,135 @@ do
   require('conform').setup {
     notify_on_error = false,
     format_on_save = function(bufnr)
+      if vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then return end
+
       -- You can specify filetypes to autoformat on save here:
       local enabled_filetypes = {
         -- lua = true,
-        -- python = true,
+        python = true,
+        c = true,
+        tex = true,
+        javascript = true,
+        rust = true,
+        json = true,
+        html = true,
+        css = true,
       }
+
       if enabled_filetypes[vim.bo[bufnr].filetype] then
-        return { timeout_ms = 500 }
+        return { timeout_ms = 500, lsp_format = 'fallback' }
       else
         return nil
       end
     end,
     default_format_opts = {
-      lsp_format = 'fallback', -- Use external formatters if configured below, otherwise use LSP formatting. Set to `false` to disable LSP formatting entirely.
+      lsp_format = 'fallback',
     },
-    -- You can also specify external formatters in here.
     formatters_by_ft = {
       -- rust = { 'rustfmt' },
       -- Conform can also run multiple formatters sequentially
-      -- python = { "isort", "black" },
+      python = { "isort", "black" },
       --
       -- You can use 'stop_after_first' to run the first available formatter from the list
-      -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      javascript = { "prettierd", "prettier", stop_after_first = true },
     },
   }
 
-  vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true } end, { desc = '[F]ormat buffer' })
+  vim.api.nvim_create_user_command('FormatDisable', function(args)
+    if args.bang then
+      vim.b.disable_autoformat = true
+    else
+      vim.g.disable_autoformat = true
+    end
+  end, {
+    desc = 'Disable autoformat-on-save',
+    bang = true,
+  })
+
+  vim.api.nvim_create_user_command('FormatEnable', function()
+    vim.b.disable_autoformat = false
+    vim.g.disable_autoformat = false
+  end, {
+    desc = 'Re-enable autoformat-on-save',
+  })
+
+  vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true, lsp_format = 'fallback' } end, { desc = '[F]ormat buffer' })
 end
+-- [[ Snippet Engine ]]
 
--- ============================================================
--- SECTION 8: AUTOCOMPLETE & SNIPPETS
--- blink.cmp and luasnip setup
--- ============================================================
-do
-  -- [[ Snippet Engine ]]
+-- NOTE: You can also specify plugin using a version range for its git tag.
+--  See `:help vim.version.range()` for more info
+vim.pack.add { { src = gh 'L3MON4D3/LuaSnip', version = vim.version.range '2.*' } }
+require('luasnip').setup {}
 
-  -- NOTE: You can also specify plugin using a version range for its git tag.
-  --  See `:help vim.version.range()` for more info
-  vim.pack.add { { src = gh 'L3MON4D3/LuaSnip', version = vim.version.range '2.*' } }
-  require('luasnip').setup {}
+-- `friendly-snippets` contains a variety of premade snippets.
+--    See the README about individual language/framework/plugin snippets:
+--    https://github.com/rafamadriz/friendly-snippets
+--
+vim.pack.add { gh 'rafamadriz/friendly-snippets' }
+require('luasnip.loaders.from_vscode').lazy_load()
 
-  -- `friendly-snippets` contains a variety of premade snippets.
-  --    See the README about individual language/framework/plugin snippets:
-  --    https://github.com/rafamadriz/friendly-snippets
+-- [[ Autocomplete Engine ]]
+vim.pack.add { { src = gh 'saghen/blink.cmp', version = vim.version.range '1.*' } }
+require('blink.cmp').setup {
+  keymap = {
+    -- 'default' (recommended) for mappings similar to built-in completions
+    --   <c-y> to accept ([y]es) the completion.
+    --    This will auto-import if your LSP supports it.
+    --    This will expand snippets if the LSP sent a snippet.
+    -- 'super-tab' for tab to accept
+    -- 'enter' for enter to accept
+    -- 'none' for no mappings
+    --
+    -- For an understanding of why the 'default' preset is recommended,
+    -- you will need to read `:help ins-completion`
+    --
+    -- No, but seriously. Please read `:help ins-completion`, it is really good!
+    --
+    -- All presets have the following mappings:
+    -- <tab>/<s-tab>: move to right/left of your snippet expansion
+    -- <c-space>: Open menu or open docs if already open
+    -- <c-n>/<c-p> or <up>/<down>: Select next/previous item
+    -- <c-e>: Hide menu
+    -- <c-k>: Toggle signature help
+    --
+    -- See `:help blink-cmp-config-keymap` for defining your own keymap
+    preset = 'super-tab',
+
+    -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
+    --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
+  },
+
+  appearance = {
+    -- 'mono' (default) for 'Nerd Font Mono' or 'normal' for 'Nerd Font'
+    -- Adjusts spacing to ensure icons are aligned
+    nerd_font_variant = 'mono',
+  },
+
+  completion = {
+    -- By default, you may press `<c-space>` to show the documentation.
+    -- Optionally, set `auto_show = true` to show the documentation after a delay.
+    documentation = { auto_show = true, auto_show_delay_ms = 500 },
+  },
+
+  sources = {
+    default = { 'lsp', 'path', 'snippets' },
+  },
+
+  snippets = { preset = 'luasnip' },
+
+  -- Blink.cmp includes an optional, recommended rust fuzzy matcher,
+  -- which automatically downloads a prebuilt binary when enabled.
   --
-  -- vim.pack.add { gh 'rafamadriz/friendly-snippets' }
-  -- require('luasnip.loaders.from_vscode').lazy_load()
+  -- By default, we use the Lua implementation instead, but you may enable
+  -- the rust implementation via `'prefer_rust_with_warning'`
+  --
+  -- See `:help blink-cmp-config-fuzzy` for more information
+  fuzzy = { implementation = 'lua' },
 
-  -- [[ Autocomplete Engine ]]
-  vim.pack.add { { src = gh 'saghen/blink.cmp', version = vim.version.range '1.*' } }
-  require('blink.cmp').setup {
-    keymap = {
-      -- 'default' (recommended) for mappings similar to built-in completions
-      --   <c-y> to accept ([y]es) the completion.
-      --    This will auto-import if your LSP supports it.
-      --    This will expand snippets if the LSP sent a snippet.
-      -- 'super-tab' for tab to accept
-      -- 'enter' for enter to accept
-      -- 'none' for no mappings
-      --
-      -- For an understanding of why the 'default' preset is recommended,
-      -- you will need to read `:help ins-completion`
-      --
-      -- No, but seriously. Please read `:help ins-completion`, it is really good!
-      --
-      -- All presets have the following mappings:
-      -- <tab>/<s-tab>: move to right/left of your snippet expansion
-      -- <c-space>: Open menu or open docs if already open
-      -- <c-n>/<c-p> or <up>/<down>: Select next/previous item
-      -- <c-e>: Hide menu
-      -- <c-k>: Toggle signature help
-      --
-      -- See `:help blink-cmp-config-keymap` for defining your own keymap
-      preset = 'super-tab',
-
-      -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
-      --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
-    },
-
-    appearance = {
-      -- 'mono' (default) for 'Nerd Font Mono' or 'normal' for 'Nerd Font'
-      -- Adjusts spacing to ensure icons are aligned
-      nerd_font_variant = 'mono',
-    },
-
-    completion = {
-      -- By default, you may press `<c-space>` to show the documentation.
-      -- Optionally, set `auto_show = true` to show the documentation after a delay.
-      documentation = { auto_show = false, auto_show_delay_ms = 500 },
-    },
-
-    sources = {
-      default = { 'lsp', 'path', 'snippets' },
-    },
-
-    snippets = { preset = 'luasnip' },
-
-    -- Blink.cmp includes an optional, recommended rust fuzzy matcher,
-    -- which automatically downloads a prebuilt binary when enabled.
-    --
-    -- By default, we use the Lua implementation instead, but you may enable
-    -- the rust implementation via `'prefer_rust_with_warning'`
-    --
-    -- See `:help blink-cmp-config-fuzzy` for more information
-    fuzzy = { implementation = 'lua' },
-
-    -- Shows a signature help window while you type arguments for a function
-    signature = { enabled = true },
-  }
-end
+  -- Shows a signature help window while you type arguments for a function
+  signature = { enabled = true },
+}
 
 -- ============================================================
 -- SECTION 9: TREESITTER
@@ -1020,7 +1037,7 @@ do
   require 'kickstart.plugins.autopairs'
   -- require 'kickstart.plugins.neo-tree'
   require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
-  require 'kickstart.plugins.tabout'
+  --require 'kickstart.plugins.tabout'
 
   -- NOTE: You can add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --
